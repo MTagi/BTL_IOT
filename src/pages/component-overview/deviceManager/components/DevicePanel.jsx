@@ -1,117 +1,127 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Button, Input, message, Modal, Form } from 'antd';
+import React, { useState } from 'react';
+import { Table, Button, Input, message, Modal, Form, Menu, Dropdown } from 'antd';
 
 const { Search } = Input;
 
-const DevicePanel = () => {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [tableParams, setTableParams] = useState({
-    pagination: {
-      current: 1,
-      pageSize: 10,
-      showSizeChanger: true,
-      pageSizeOptions: ['5', '10', '20', '50'],
-      total: 0,
-    },
-  });
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [form] = Form.useForm();
+const fakeData = [
+  { id: '1', device: 'Sensor A', status: 'Active' },
+  { id: '2', device: 'Sensor B', status: 'Inactive' },
+  { id: '3', device: 'Camera X', status: 'Active' },
+  { id: '4', device: 'Thermostat Y', status: 'Inactive' },
+  { id: '5', device: 'Device Z', status: 'Active' },
+];
 
-  // Fetch data from the server
-  const fetchData = async () => {
-    setLoading(true);
+const DevicePanel = () => {
+  const [data, setData] = useState(fakeData);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editingDevice, setEditingDevice] = useState(null);
+  const [form] = Form.useForm();
+  const [addForm] = Form.useForm();
+
+  // Xóa thiết bị
+  const handleDelete = (record) => {
+    setData((prevData) => prevData.filter((item) => item.id !== record.id));
+    message.success('Device deleted successfully!');
+  };
+
+  // Hiển thị modal sửa thiết bị
+  const showEditModal = (record) => {
+    setEditingDevice(record);
+    setIsEditModalVisible(true);
+    form.setFieldsValue(record);
+  };
+
+  // Xử lý lưu khi sửa thiết bị
+  const handleEditOk = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/devices');
-      const result = await response.json();
-      setData(result);
-      setTableParams({
-        ...tableParams,
-        pagination: {
-          ...tableParams.pagination,
-          total: result.length,
-        },
-      });
+      const values = await form.validateFields();
+      setData((prevData) =>
+        prevData.map((item) =>
+          item.id === editingDevice.id ? { ...item, ...values } : item
+        )
+      );
+      message.success('Device updated successfully!');
+      form.resetFields();
+      setIsEditModalVisible(false);
+      setEditingDevice(null);
     } catch (error) {
-      message.error('Error fetching data!');
-    } finally {
-      setLoading(false);
+      message.error('Please fill out all fields!');
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleTableChange = (pagination, filters, sorter) => {
-    setTableParams({
-      pagination,
-      filters,
-      sorter,
-    });
+  // Hủy sửa thiết bị
+  const handleEditCancel = () => {
+    form.resetFields();
+    setIsEditModalVisible(false);
+    setEditingDevice(null);
   };
 
-  const onSearch = (value) => {
-    const filteredData = data.filter((item) =>
-      item.device.toLowerCase().includes(value.toLowerCase())
-    );
-    setTableParams({
-      ...tableParams,
-      pagination: {
-        ...tableParams.pagination,
-        total: filteredData.length,
-      },
-    });
-  };
-
-  const showModal = () => {
+  // Hiển thị modal thêm thiết bị
+  const showAddModal = () => {
     setIsModalVisible(true);
   };
 
-  const handleOk = async () => {
+  // Xử lý lưu khi thêm thiết bị
+  const handleAddOk = async () => {
     try {
-      const values = await form.validateFields();
+      const values = await addForm.validateFields();
       const newDevice = {
-        id: Date.now().toString(), // Generate a unique ID
-        device: values.device,
-        status: values.status,
+        id: Date.now().toString(), // Tạo ID duy nhất
+        ...values,
       };
       setData((prevData) => [...prevData, newDevice]);
       message.success('Device added successfully!');
-      form.resetFields();
+      addForm.resetFields();
       setIsModalVisible(false);
     } catch (error) {
       message.error('Please fill out all fields!');
     }
   };
 
-  const handleCancel = () => {
-    form.resetFields();
+  // Hủy thêm thiết bị
+  const handleAddCancel = () => {
+    addForm.resetFields();
     setIsModalVisible(false);
   };
 
+  // Menu của dropdown
+  const menu = (record) => (
+    <Menu>
+      <Menu.Item key="edit" onClick={() => showEditModal(record)}>
+        Edit
+      </Menu.Item>
+      <Menu.Item key="delete" onClick={() => handleDelete(record)}>
+        Delete
+      </Menu.Item>
+    </Menu>
+  );
+
+  // Cột trong bảng
   const columns = [
     {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
-      sorter: (a, b) => a.id.localeCompare(b.id),
     },
     {
       title: 'Device',
       dataIndex: 'device',
       key: 'device',
-      sorter: (a, b) => a.device.localeCompare(b.device),
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      filters: [
-        { text: 'Active', value: 'Active' },
-        { text: 'Inactive', value: 'Inactive' },
-      ],
-      onFilter: (value, record) => record.status === value,
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (text, record) => (
+        <Dropdown overlay={menu(record)} trigger={['click']}>
+          <Button type="link">Actions</Button>
+        </Dropdown>
+      ),
     },
   ];
 
@@ -124,12 +134,8 @@ const DevicePanel = () => {
           marginBottom: '20px',
         }}
       >
-        <Search
-          placeholder="Search devices"
-          onSearch={onSearch}
-          style={{ width: 200 }}
-        />
-        <Button type="primary" onClick={showModal}>
+        <Search placeholder="Search devices" style={{ width: 200 }} />
+        <Button type="primary" onClick={showAddModal}>
           Add Device
         </Button>
       </div>
@@ -137,16 +143,38 @@ const DevicePanel = () => {
         columns={columns}
         rowKey="id"
         dataSource={data}
-        loading={loading}
-        pagination={tableParams.pagination}
-        onChange={handleTableChange}
-        scroll={{ y: 400 }}
+        pagination={{ pageSize: 5 }}
       />
+      {/* Modal thêm thiết bị */}
       <Modal
         title="Add Device"
         visible={isModalVisible}
-        onOk={handleOk}
-        onCancel={handleCancel}
+        onOk={handleAddOk}
+        onCancel={handleAddCancel}
+      >
+        <Form form={addForm} layout="vertical">
+          <Form.Item
+            name="device"
+            label="Device Name"
+            rules={[{ required: true, message: 'Please enter device name' }]}
+          >
+            <Input placeholder="Enter device name" />
+          </Form.Item>
+          <Form.Item
+            name="status"
+            label="Status"
+            rules={[{ required: true, message: 'Please select device status' }]}
+          >
+            <Input placeholder="Enter status (Active/Inactive)" />
+          </Form.Item>
+        </Form>
+      </Modal>
+      {/* Modal sửa thiết bị */}
+      <Modal
+        title="Edit Device"
+        visible={isEditModalVisible}
+        onOk={handleEditOk}
+        onCancel={handleEditCancel}
       >
         <Form form={form} layout="vertical">
           <Form.Item
