@@ -46,6 +46,13 @@ const utilities = {
       icon: icons.HistoryOutlined,  // Icon lịch sử cho lịch sử hành động
     },
     {
+      id: 'util-deviceManager',
+      title: 'Device Manager',
+      type: 'item',
+      url: '/deviceManager',
+      icon: icons.HistoryOutlined,  // Icon lịch sử cho lịch sử hành động
+    },
+    {
       id: 'util-profiles',
       title: 'About',
       type: 'item',

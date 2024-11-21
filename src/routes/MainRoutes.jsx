@@ -7,6 +7,7 @@ const DashboardNew = Loadable(lazy(() => import('pages/component-overview/dashbo
 const DataSensors = Loadable(lazy(() => import('pages/component-overview/dataSensors/index')));
 const ActionHistory = Loadable(lazy(() => import('pages/component-overview/actionHistory/index')));
 const Profiles = Loadable(lazy(() => import('pages/component-overview/profiles/index')));
+const DevicePanel = Loadable(lazy(() => import('pages/component-overview/deviceManager/index')));
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -29,6 +30,10 @@ const MainRoutes = {
     {
       path: 'actionHistory',
       element: <ActionHistory />
+    },
+    {
+      path: 'deviceManager',
+      element: <DevicePanel />
     },
     {
       path: 'profiles',
