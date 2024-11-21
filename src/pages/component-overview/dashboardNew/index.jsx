@@ -3,6 +3,7 @@ import { Col, Row, Card, message } from "antd";
 import ControlPanel from "./components/ControlPanel"; // Import component ControlPanel
 import Chart from "./components/Chart";
 import GasChart from "./components/GasChart"; // Import GasChart
+import LoginPanel from './components/LoginPanel'; // Import LoginPanel
 import Chatbot from "./components/Chatbot";
 import InfoCards from "./components/InfoCards";
 import "./dashboardNew.scss";
@@ -79,6 +80,11 @@ export default function DashboardNew() {
 
   return (
     <div className="dashboardNew">
+      <Row gutter={[16, 16]}>
+        <Col span={24}>
+          <LoginPanel />
+        </Col>
+      </Row>
       {/* Thông tin môi trường */}
       <InfoCards
         temperature={data[data.length - 1]?.temperature || 0} // Giá trị mặc định nếu null

@@ -210,6 +210,28 @@ def get_history():
     print(jsonify(records))
     return jsonify(records), 200
 
+@app.route('/api/login', methods=['POST'])
+def login():
+    try:
+        # Lấy dữ liệu từ request
+        data = request.json
+        ip_address = data.get('ipAddress')
+        username = data.get('username')
+        password = data.get('password')
+
+        # Kiểm tra nếu thiếu thông tin
+        if not ip_address or not username or not password:
+            return jsonify({"message": "Thiếu thông tin đăng nhập!"}), 400
+        else: #viết lại đoạn code này nếu muốn kiểm tra đăng nhập hay gì đấy
+            return jsonify({
+                "message": "Đăng nhập thành công!",
+                "ipAddress": ip_address,
+                "username": username
+            }), 200
+    except Exception as e:
+        print(f"Lỗi: {e}")
+        return jsonify({"message": "Đã xảy ra lỗi trên server!"}), 500
+
 def read_data(folder_path): 
     content = ""  # Biến lưu trữ nội dung gộp của các tệp
     # Duyệt qua tất cả các tệp trong thư mục
