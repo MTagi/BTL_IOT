@@ -37,8 +37,12 @@ mqtt_client=None
 control_client=None
 aqi_warning=False
 fire_warning=False
-last_aqi=0
 chatbot_response=None
+
+# Biến lưu trữ dữ liệu nhận từ MQTT theo từng topic
+dht11_data = {}
+bh1750_data = {}
+mq135_data = {}
 # # # Kết nối tới MongoDB
 client = MongoClient("mongodb://localhost:27017/")
 db = client["home"]  # Tên database
@@ -206,6 +210,7 @@ def get_history():
 @app.route('/api/login', methods=['POST'])
 def login():
     try:
+        users_collection = db["users"]  # Lấy danh sách các tài khoản 
         # Lấy dữ liệu từ request
         data = request.json
         ip_address = data.get('ipAddress')
@@ -216,18 +221,41 @@ def login():
         if not ip_address or not username or not password:
             return jsonify({"message": "Thiếu thông tin đăng nhập!"}), 400
         else: 
-            broker_address=ip_address
-            username=username
-            password=password
-            return jsonify({
-                "message": "Đăng nhập thành công!",
-                "ipAddress": ip_address,
-                "username": username
-            }), 200
+            user = users_collection.find_one({"ipAddress": ipAddress, "username": username, "password": password})
+            if user:
+                broker_address=ip_address
+                username=username
+                password=password
+                return jsonify({
+                    "message": "Đăng nhập thành công!",
+                    "ipAddress": ip_address,
+                    "username": username
+                }), 200
+            else:
+                # Sai thông tin đăng nhập
+                return jsonify({"message": "Sai tên đăng nhập hoặc mật khẩu!"}), 401
     except Exception as e:
         print(f"Lỗi: {e}")
         return jsonify({"message": "Đã xảy ra lỗi trên server!"}), 500
 
+@app.route('/api/status', methods=['GET'])
+def get_status():
+    bao_doc="Không"
+    bao_chay="Không"
+    if aqi_warning: 
+        bao_doc="Có"
+    else: 
+        bao_doc="Không"
+    if fire_warning:
+        bao_chay="Có"
+    else: 
+        bao_chay="Không"
+     return jsonify({
+                    "bao_doc": bao_doc,
+                    "bao_chay": bao_chay,
+                }), 200 
+    
+    
 def read_data(folder_path): 
     content = ""  # Biến lưu trữ nội dung gộp của các tệp
     # Duyệt qua tất cả các tệp trong thư mục
@@ -246,11 +274,6 @@ def read_data(folder_path):
     vector_index = Chroma.from_texts(texts, embeddings).as_retriever(search_kwargs={"k":1})
     return vector_index
 
-
-# Biến lưu trữ dữ liệu nhận từ MQTT theo từng topic
-dht11_data = {}
-bh1750_data = {}
-mq135_data = {}
 
 # Hàm callback khi nhận được thông điệp từ MQTT
 def on_message(client, userdata, msg):
