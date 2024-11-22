@@ -20,6 +20,7 @@ vector_index=None
 
 app = Flask(__name__)
 CORS(app)
+# Các tham số liên quan đến điều khiển thiết bị.
 mode_auto=False
 time_auto=0
 time_light=0
@@ -27,14 +28,22 @@ mode_fan="OFF"
 mode_buzzer="OFF"
 mode_door="OFF"
 mode_light="OFF"
-broker_address="172.20.10.2"
+# Các tham số liên quan đến thông tin đăng nhập.
+broker_address=None
+username=None
+password=None
+
 mqtt_client=None
 control_client=None
-control_queue = Queue()
 aqi_warning=False
 fire_warning=False
 last_aqi=0
 chatbot_response=None
+# # # Kết nối tới MongoDB
+client = MongoClient("mongodb://localhost:27017/")
+db = client["home"]  # Tên database
+items_collection = db["control_panel"]  # Tên collection
+sensor_collection = db["sensor"]
 
 model_RF = joblib.load('E:/3.hocki1nam4\IoT\BTL_IOT_FE\BE\weight/random_forest_model.joblib')
 def predict_RF(temperature, humidity, tvoc, eco2, raw_ethanol):
@@ -42,17 +51,7 @@ def predict_RF(temperature, humidity, tvoc, eco2, raw_ethanol):
     input_data = np.array([[temperature, humidity, tvoc, eco2, raw_ethanol]])
     # Sử dụng mô hình để dự đoán
     prediction = model_RF.predict(input_data)
-    # Trả về kết quả dự đoán
-    if eco2>1000:
-        return 1
-    else:
-        return 0
     return prediction[0]
-# # # Kết nối tới MongoDB
-client = MongoClient("mongodb://localhost:27017/")
-db = client["home"]  # Tên database
-items_collection = db["control_panel"]  # Tên collection
-sensor_collection = db["sensor"]
 
 # API để lấy dữ liệu từ cảm biến
 @app.route('/api/sensors', methods=['GET'])
@@ -78,7 +77,6 @@ def get_sensor_data():
             time_light=time_auto
     
     fire_alarm=predict_RF(dht11_data['temperature'], dht11_data['humidity'], mq135_data['tvocppm']*1000, mq135_data['co2ppm'], mq135_data['ethanolppm'])
-    print("có cháy khônggggggggggggggg")
     
     if fire_alarm==1:
         print("có cháy")
@@ -131,8 +129,6 @@ def get_aqi_chatbot():
         control_topic("home/buzzer", "OFF")
         control_topic("home/fan", mode_fan)
         control_topic("home/door", mode_door)
-    # if abs(aqi-last_aqi)>10 or chatbot_response==None:
-    #     last_aqi=aqi
     chatbot_response = chatbot("Chỉ số AQI là "+ str(aqi) , vector_index)
     print(chatbot_response)
     return jsonify({
@@ -143,14 +139,11 @@ def get_aqi_chatbot():
 def get_sensor_history():
     # Lấy tham số 'limit' từ query string (số bản ghi muốn lấy, mặc định là 100)
     limit = int(request.args.get('limit', 100))  # Số lượng bản ghi (default: 100)
-    
     # Truy vấn dữ liệu từ MongoDB, sắp xếp theo trường 'timestamp' giảm dần, và giới hạn số lượng bản ghi
     records = list(sensor_collection.find().sort("timestamp", -1).limit(limit))
-    
     # Chuyển đổi ObjectId thành chuỗi để trả về dưới dạng JSON
     for record in records:
         record["_id"] = str(record["_id"])  # Convert ObjectId to string
-    
     # Trả về dữ liệu dưới dạng JSON
     return jsonify(records), 200
 @app.route("/api/control", methods=["POST"])
@@ -218,11 +211,14 @@ def login():
         ip_address = data.get('ipAddress')
         username = data.get('username')
         password = data.get('password')
-
+        
         # Kiểm tra nếu thiếu thông tin
         if not ip_address or not username or not password:
             return jsonify({"message": "Thiếu thông tin đăng nhập!"}), 400
-        else: #viết lại đoạn code này nếu muốn kiểm tra đăng nhập hay gì đấy
+        else: 
+            broker_address=ip_address
+            username=username
+            password=password
             return jsonify({
                 "message": "Đăng nhập thành công!",
                 "ipAddress": ip_address,
@@ -281,7 +277,7 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe("esp/mq135")
 
 # Hàm khởi tạo MQTT
-def connect_mqtt(broker=broker_address, port=1883, username="thang", password="thang1411"):
+def connect_mqtt(broker=broker_address, port=1883, username=username, password=password):
     mqtt_client = mqtt.Client()
     mqtt_client.username_pw_set(username, password)
     mqtt_client.connect(broker, port, 60)
@@ -301,27 +297,14 @@ def start_mqtt_in_background():
     mqtt_thread.start()
     print("MQTT loop started in the background")
 
-def process_control():
-    while True:
-        task = control_queue.get()
-        if task is None: break
-        topic, data = task
-        control_client.publish(topic, data, qos=0)
 def control_topic(topic,data):
     print("-----------------")
     print(topic, data)
-    # Gửi thông điệp tới topic "home/fan"
-    # control_queue.put((topic, data))  # Thay "on" bằng dữ liệu bạn muốn gửi
     control_client.publish(topic, data, qos=0)
-def start_control_in_background():
-    control_thread = threading.Thread(target=process_control, daemon=True)
-    control_thread.start()
-    print("Control loop started in the background")
 
 if __name__ == '__main__':
     mqtt_client=connect_mqtt()
     control_client= connect_mqtt()
     start_mqtt_in_background()
-    # start_control_in_background()
     vector_index=read_data("E:/3.hocki1nam4\IoT\BTL_IOT\BE\AQI")
     app.run(host='0.0.0.0', port=5000, debug=True)
