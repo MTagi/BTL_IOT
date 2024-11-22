@@ -62,11 +62,22 @@ export default function DashboardNew() {
         const csAqi = result1.aqi; // AQI từ 1-150
         setAqi(csAqi);
         setAdvice(result1.chatbot_response);
+
+        const status = await fetch("http://localhost:5000/api/status");
+        const result_status = await response.json();
+        if(result_status.bao_doc=="Có") {
+          message.error("Tình trạng chất lượng không khí đang ở mức rất nguy hiểm. Hãy rời khỏi phòng ngay lập tức");
+        }
+        if(result_status.bao_chay=="Có"){
+           message.error("Tình trạng chất lượng không khí đang ở mức rất nguy hiểm. Hãy rời khỏi phòng ngay lập tức");
+        }
       } catch (error) {
         message.error("Lỗi khi lấy dữ liệu từ API");
         console.error("Error fetching data:", error);
       }
+      
     };
+    
 
     if (isAutoMode) {
       // Lặp lại khi ở chế độ tự động
