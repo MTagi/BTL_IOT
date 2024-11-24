@@ -78,15 +78,12 @@ export default function DashboardNew() {
       
     };
     
-
-    if (isAutoMode) {
-      // Lặp lại khi ở chế độ tự động
-      const intervalId = setInterval(() => {
+     const intervalId = setInterval(() => {
         generateFakeData();
-      }, 20000);
-
+      }, 5000);
+    
       return () => clearInterval(intervalId);
-    }
+    
   }, [isAutoMode]); // Theo dõi sự thay đổi của isAutoMode
 
   return (
